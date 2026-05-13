@@ -6,6 +6,8 @@ require Pod::Executable.execute_command('node', ['-p',
   )', __dir__]).strip
 
 SILENCED_CPP_PODS = ['fmt', 'Yoga'].freeze
+FMT_HEADER_ONLY_FLAG = '-DFMT_HEADER_ONLY=1'.freeze
+FMT_HEADER_ONLY_DEFINITION = 'FMT_HEADER_ONLY=1'.freeze
 
 def update_file_if_needed(path)
   return unless File.exist?(path)
@@ -28,9 +30,24 @@ def sanitize_react_native_podspecs!
       updated = updated.sub(
         %q{"GCC_WARN_INHIBIT_ALL_WARNINGS" => "YES" # Disable warnings because we don't control this library},
         %q{"GCC_WARN_INHIBIT_ALL_WARNINGS" => "YES",
-    "OTHER_CPLUSPLUSFLAGS" => "$(inherited) -w -Wno-error=return-type -Wno-error=non-modular-include-in-framework-module -Wno-error=deprecated-objc-isa-usage -Wno-error=objc-root-class"}
+    "OTHER_CPLUSPLUSFLAGS" => "$(inherited) -DFMT_HEADER_ONLY=1 -w -Wno-error=return-type -Wno-error=non-modular-include-in-framework-module -Wno-error=deprecated-objc-isa-usage -Wno-error=objc-root-class"}
       )
     end
+    updated = updated.gsub(/"OTHER_CPLUSPLUSFLAGS"\s*=>\s*"([^"]*)"/) do
+      flags = Regexp.last_match(1).split
+      flags << FMT_HEADER_ONLY_FLAG
+      %Q{"OTHER_CPLUSPLUSFLAGS" => "#{flags.uniq.join(' ')}"}
+    end
+    unless updated.include?('"GCC_PREPROCESSOR_DEFINITIONS"')
+      updated = updated.sub(
+        /("OTHER_CPLUSPLUSFLAGS"\s*=>\s*"[^"]*")/,
+        %Q{\\1,\n    "GCC_PREPROCESSOR_DEFINITIONS" => "$(inherited) #{FMT_HEADER_ONLY_DEFINITION}"}
+      )
+    end
+    updated = updated.gsub(
+      'spec.source_files = ["include/fmt/*.h", "src/format.cc"]',
+      'spec.source_files = ["include/fmt/*.h"]'
+    )
     updated
   end
 end
@@ -69,6 +86,10 @@ target 'IceClassExplorer' do
         build_config.build_settings['GCC_WARN_ABOUT_RETURN_TYPE'] = 'YES'
         build_config.build_settings['CLANG_WARN_OBJC_ROOT_CLASS'] = 'YES'
         build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+        definitions = build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
+        definitions = definitions.is_a?(Array) ? definitions : definitions.split(' ')
+        definitions << FMT_HEADER_ONLY_DEFINITION
+        build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = definitions.uniq
 
         if SILENCED_CPP_PODS.include?(target.name)
           build_config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
@@ -82,6 +103,7 @@ target 'IceClassExplorer' do
 
           flags = value.is_a?(Array) ? value : value.split(' ')
           filtered_flags = flags.reject { |flag| flag == '-Werror' || flag.start_with?('-Werror=') }
+          filtered_flags << FMT_HEADER_ONLY_FLAG if key == 'OTHER_CPLUSPLUSFLAGS'
           filtered_flags << '-Wno-error=return-type'
           filtered_flags << '-Wno-error=non-modular-include-in-framework-module'
           filtered_flags << '-Wno-error=deprecated-objc-isa-usage'
