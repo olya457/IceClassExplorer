@@ -31,5 +31,33 @@ target 'IceClassExplorer' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        build_config.build_settings['GCC_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
+        if ['fmt', 'Yoga'].include?(target.name)
+          build_config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+        end
+
+        ['OTHER_CFLAGS', 'OTHER_CPLUSPLUSFLAGS'].each do |key|
+          value = build_config.build_settings[key]
+          next unless value
+
+          flags = value.is_a?(Array) ? value : value.split(' ')
+          filtered_flags = flags.reject { |flag| flag == '-Werror' }
+          build_config.build_settings[key] = value.is_a?(Array) ? filtered_flags : filtered_flags.join(' ')
+        end
+      end
+
+      source_phase = target.respond_to?(:source_build_phase) ? target.source_build_phase : nil
+      next unless source_phase
+
+      source_phase.files.each do |file|
+        next unless file.settings && file.settings['COMPILER_FLAGS']
+
+        flags = file.settings['COMPILER_FLAGS'].split
+        file.settings['COMPILER_FLAGS'] = flags.reject { |flag| flag == '-Werror' }.join(' ')
+      end
+    end
   end
 end
