@@ -8,13 +8,18 @@ require Pod::Executable.execute_command('node', ['-p',
 SILENCED_CPP_PODS = ['fmt', 'Yoga'].freeze
 FMT_HEADER_ONLY_FLAG = '-DFMT_HEADER_ONLY=1'.freeze
 FMT_HEADER_ONLY_DEFINITION = 'FMT_HEADER_ONLY=1'.freeze
+FMT_DISABLE_CONSTEVAL_FLAG = '-DFMT_USE_CONSTEVAL=0'.freeze
+FMT_DISABLE_CONSTEVAL_DEFINITION = 'FMT_USE_CONSTEVAL=0'.freeze
 
 def update_file_if_needed(path)
   return unless File.exist?(path)
 
   current = File.read(path)
   updated = yield current
-  File.write(path, updated) if updated != current
+  if updated != current
+    File.chmod(File.stat(path).mode | 0o200, path) unless File.writable?(path)
+    File.write(path, updated)
+  end
 end
 
 def sanitize_react_native_podspecs!
@@ -36,19 +41,36 @@ def sanitize_react_native_podspecs!
     updated = updated.gsub(/"OTHER_CPLUSPLUSFLAGS"\s*=>\s*"([^"]*)"/) do
       flags = Regexp.last_match(1).split
       flags << FMT_HEADER_ONLY_FLAG
+      flags << FMT_DISABLE_CONSTEVAL_FLAG
       %Q{"OTHER_CPLUSPLUSFLAGS" => "#{flags.uniq.join(' ')}"}
     end
     unless updated.include?('"GCC_PREPROCESSOR_DEFINITIONS"')
       updated = updated.sub(
         /("OTHER_CPLUSPLUSFLAGS"\s*=>\s*"[^"]*")/,
-        %Q{\\1,\n    "GCC_PREPROCESSOR_DEFINITIONS" => "$(inherited) #{FMT_HEADER_ONLY_DEFINITION}"}
+        %Q{\\1,\n    "GCC_PREPROCESSOR_DEFINITIONS" => "$(inherited) #{FMT_HEADER_ONLY_DEFINITION} #{FMT_DISABLE_CONSTEVAL_DEFINITION}"}
       )
+    else
+      updated = updated.gsub(/"GCC_PREPROCESSOR_DEFINITIONS"\s*=>\s*"([^"]*)"/) do
+        definitions = Regexp.last_match(1).split
+        definitions << FMT_HEADER_ONLY_DEFINITION
+        definitions << FMT_DISABLE_CONSTEVAL_DEFINITION
+        %Q{"GCC_PREPROCESSOR_DEFINITIONS" => "#{definitions.uniq.join(' ')}"}
+      end
     end
     updated = updated.gsub(
       'spec.source_files = ["include/fmt/*.h", "src/format.cc"]',
       'spec.source_files = ["include/fmt/*.h"]'
     )
     updated
+  end
+end
+
+def patch_fmt_consteval_header!(pods_root)
+  update_file_if_needed(File.join(pods_root, 'fmt/include/fmt/base.h')) do |contents|
+    contents.sub(
+      '#if !defined(__cpp_lib_is_constant_evaluated)',
+      "#if defined(FMT_USE_CONSTEVAL)\n#elif !defined(__cpp_lib_is_constant_evaluated)"
+    )
   end
 end
 
@@ -80,6 +102,8 @@ target 'IceClassExplorer' do
       # :ccache_enabled => true
     )
 
+    patch_fmt_consteval_header!(installer.sandbox.root.to_s)
+
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |build_config|
         build_config.build_settings['GCC_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
@@ -89,6 +113,7 @@ target 'IceClassExplorer' do
         definitions = build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || ['$(inherited)']
         definitions = definitions.is_a?(Array) ? definitions : definitions.split(' ')
         definitions << FMT_HEADER_ONLY_DEFINITION
+        definitions << FMT_DISABLE_CONSTEVAL_DEFINITION
         build_config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = definitions.uniq
 
         if SILENCED_CPP_PODS.include?(target.name)
@@ -104,6 +129,7 @@ target 'IceClassExplorer' do
           flags = value.is_a?(Array) ? value : value.split(' ')
           filtered_flags = flags.reject { |flag| flag == '-Werror' || flag.start_with?('-Werror=') }
           filtered_flags << FMT_HEADER_ONLY_FLAG if key == 'OTHER_CPLUSPLUSFLAGS'
+          filtered_flags << FMT_DISABLE_CONSTEVAL_FLAG if key == 'OTHER_CPLUSPLUSFLAGS'
           filtered_flags << '-Wno-error=return-type'
           filtered_flags << '-Wno-error=non-modular-include-in-framework-module'
           filtered_flags << '-Wno-error=deprecated-objc-isa-usage'
