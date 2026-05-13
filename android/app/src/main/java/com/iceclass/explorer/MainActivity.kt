@@ -1,4 +1,4 @@
-package com.iceclassexplorer
+package com.iceclass.explorer
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

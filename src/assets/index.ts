@@ -1,0 +1,41 @@
+import type {AssetMap, VesselCategory} from '../types';
+
+export const assets: AssetMap = {
+  splashIcebreaker: require('./splash-icebreaker.png'),
+  onboardingBlueprint: require('./onboarding-blueprint.png'),
+  onboardingVessels: require('./onboarding-vessels.png'),
+  quizCommand: require('./quiz-command.png'),
+  catalogConsole: require('./catalog-console.png'),
+  iceLogo: require('./ice-logo.png'),
+  iceLogoGlow: require('./ice-logo-glow.png'),
+  discoveryPanel: require('./discovery-panel.png'),
+  questionPanel: require('./question-panel.png'),
+  successPanel: require('./success-panel.png'),
+  visualBasicIcebreaker: require('./visual-basic-icebreaker.png'),
+  visualBasicResearch: require('./visual-basic-research.png'),
+  visualBasicCargo: require('./visual-basic-cargo.png'),
+  visualBasicExpedition: require('./visual-basic-expedition.png'),
+  visualIcebreakerSlopedBow: require('./visual-icebreaker-sloped-bow.png'),
+  visualIcebreakerRedBow: require('./visual-icebreaker-red-bow.png'),
+  visualIcebreakerChannel: require('./visual-icebreaker-channel.png'),
+  visualResearchYellowDeck: require('./visual-research-yellow-deck.png'),
+  visualExpeditionPassenger: require('./visual-expedition-passenger.png'),
+  visualResearchOceanTools: require('./visual-research-ocean-tools.png'),
+  visualExpeditionSafetyBoats: require('./visual-expedition-safety-boats.png'),
+  visualCargoContainers: require('./visual-cargo-containers.png'),
+  visualRescueEmergency: require('./visual-rescue-emergency.png'),
+  visualCargoSupply: require('./visual-cargo-supply.png'),
+  visualRescuePatrol: require('./visual-rescue-patrol.png'),
+  visualExpertExpedition: require('./visual-expert-expedition.png'),
+  visualExpertResearch: require('./visual-expert-research.png'),
+  visualExpertIcebreaker: require('./visual-expert-icebreaker.png'),
+  visualExpertCargo: require('./visual-expert-cargo.png'),
+};
+
+export const categoryImages: Record<VesselCategory, keyof AssetMap> = {
+  Icebreakers: 'splashIcebreaker',
+  Research: 'onboardingBlueprint',
+  Cargo: 'catalogConsole',
+  Expedition: 'onboardingVessels',
+  Rescue: 'quizCommand',
+};
