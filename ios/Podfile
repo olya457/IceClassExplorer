@@ -5,8 +5,39 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
+SILENCED_CPP_PODS = ['fmt', 'Yoga'].freeze
+
+def update_file_if_needed(path)
+  return unless File.exist?(path)
+
+  current = File.read(path)
+  updated = yield current
+  File.write(path, updated) if updated != current
+end
+
+def sanitize_react_native_podspecs!
+  react_native_root = File.expand_path('../node_modules/react-native', __dir__)
+
+  update_file_if_needed(File.join(react_native_root, 'ReactCommon/yoga/Yoga.podspec')) do |contents|
+    contents.gsub(/(['"])-Werror\1,?/, "'-w',")
+  end
+
+  update_file_if_needed(File.join(react_native_root, 'third-party-podspecs/fmt.podspec')) do |contents|
+    updated = contents
+    unless updated.include?('"OTHER_CPLUSPLUSFLAGS"')
+      updated = updated.sub(
+        %q{"GCC_WARN_INHIBIT_ALL_WARNINGS" => "YES" # Disable warnings because we don't control this library},
+        %q{"GCC_WARN_INHIBIT_ALL_WARNINGS" => "YES",
+    "OTHER_CPLUSPLUSFLAGS" => "$(inherited) -w -Wno-error=return-type -Wno-error=non-modular-include-in-framework-module -Wno-error=deprecated-objc-isa-usage -Wno-error=objc-root-class"}
+      )
+    end
+    updated
+  end
+end
+
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
+sanitize_react_native_podspecs!
 
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil
@@ -39,8 +70,10 @@ target 'IceClassExplorer' do
         build_config.build_settings['CLANG_WARN_OBJC_ROOT_CLASS'] = 'YES'
         build_config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
 
-        if ['fmt', 'Yoga'].include?(target.name)
+        if SILENCED_CPP_PODS.include?(target.name)
           build_config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+          build_config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'
+          build_config.build_settings['CLANG_ENABLE_EXPLICIT_MODULES'] = 'NO'
         end
 
         ['OTHER_CFLAGS', 'OTHER_CPLUSPLUSFLAGS'].each do |key|
@@ -53,7 +86,7 @@ target 'IceClassExplorer' do
           filtered_flags << '-Wno-error=non-modular-include-in-framework-module'
           filtered_flags << '-Wno-error=deprecated-objc-isa-usage'
           filtered_flags << '-Wno-error=objc-root-class'
-          filtered_flags << '-w' if ['fmt', 'Yoga'].include?(target.name)
+          filtered_flags << '-w' if SILENCED_CPP_PODS.include?(target.name)
           filtered_flags = filtered_flags.uniq
           build_config.build_settings[key] = value.is_a?(Array) ? filtered_flags : filtered_flags.join(' ')
         end
@@ -67,7 +100,10 @@ target 'IceClassExplorer' do
 
         flags = file.settings['COMPILER_FLAGS'].split
         filtered_flags = flags.reject { |flag| flag == '-Werror' || flag.start_with?('-Werror=') }
-        filtered_flags << '-w' if ['fmt', 'Yoga'].include?(target.name)
+        if SILENCED_CPP_PODS.include?(target.name)
+          filtered_flags << '-w'
+          filtered_flags << '-fno-modules'
+        end
         file.settings['COMPILER_FLAGS'] = filtered_flags.uniq.join(' ')
       end
     end
