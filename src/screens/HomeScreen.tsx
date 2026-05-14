@@ -54,7 +54,7 @@ export function HomeScreen({
           <Text
             style={[styles.title, compact && styles.compactTitle, tiny && styles.tinyTitle]}
             numberOfLines={2}>
-            The Ice Polar Class
+            Ice Class Explorer 
           </Text>
           <Text numberOfLines={compact ? 2 : undefined} style={text.body}>
             Vessel profiles, ice certifications, technical specs, and Arctic recognition drills.
