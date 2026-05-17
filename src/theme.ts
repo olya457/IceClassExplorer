@@ -5,7 +5,7 @@ import type {VesselCategory} from './types';
 export const colors = {
   ink: '#F6FBFF',
   muted: '#BBD1E4',
-  deep: '#071422',
+  deep: '#4c9aeeff',
   panel: 'rgba(8, 24, 40, 0.82)',
   panelStrong: 'rgba(6, 18, 31, 0.94)',
   line: 'rgba(205, 232, 255, 0.24)',
