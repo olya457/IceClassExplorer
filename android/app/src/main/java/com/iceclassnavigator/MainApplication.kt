@@ -1,4 +1,4 @@
-package com.iceclass.explorer
+package com.iceclassnavigator
 
 import android.app.Application
 import com.facebook.react.PackageList

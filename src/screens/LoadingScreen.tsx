@@ -195,12 +195,12 @@ const styles = StyleSheet.create({
     width: 184,
   },
   root: {
-    backgroundColor: '#061C37',
+    backgroundColor: '#466fa1ff',
     flex: 1,
   },
   skyGlow: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#061C37',
+    backgroundColor: '#7aaae6ff',
   },
   snowDot: {
     backgroundColor: '#FFFFFF',
